@@ -1,0 +1,52 @@
+name: Promote Dev → QA
+ 
+# Manually triggerable
+on:
+  workflow_dispatch:
+ 
+# Grant GITHUB_TOKEN rights to create & merge PRs
+permissions:
+  contents: write           # needed to push merge commit
+  pull-requests: write      # needed to create/merge PRs
+ 
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+ 
+    steps:
+      - name: Checkout dev branch
+        uses: actions/checkout@v3
+        with:
+          ref: dev
+ 
+      - name: Create Pull Request (dev → qa)
+        id: create_pr
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Create the PR
+            const { data: pr } = await github.rest.pulls.create({
+              owner: context.repo.owner,
+              repo:  context.repo.repo,
+              head:  'dev',
+              base:  'qa',
+              title: 'Promote dev → qa',
+              body:  'Automated PR created by GitHub Actions'
+            });
+            core.setOutput('pr_number', pr.number);
+        # Uses the REST endpoint for creating a pull request :contentReference[oaicite:0]{index=0}
+ 
+      - name: Merge Pull Request
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            // Merge the PR we just created
+            await github.rest.pulls.merge({
+              owner:       context.repo.owner,
+              repo:        context.repo.repo,
+              pull_number: parseInt('${{ steps.create_pr.outputs.pr_number }}', 10),
+              merge_method: 'merge'
+            });
+        # Uses the REST endpoint for merging a pull request :contentReference[oaicite:1]{index=1}
